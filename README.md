@@ -3,6 +3,10 @@ uberdict
 
 A Python dict that supports attribute-style access as well as hierarchical keys.
 
+Tested under py26, py27, py32, py33, py34, and pypy.
+
+[![Build Status](https://travis-ci.org/eukaryote/uberdict.png?branch=master)](https://travis-ci.org/eukaryote/uberdict)
+
 
 Examples
 ========

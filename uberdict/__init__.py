@@ -74,6 +74,12 @@ class UberDict(dict):
         except KeyError as e:
             raise AttributeError("no attribute '%s'" % (e.args[0]))
 
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
     @classmethod
     def fromdict(cls, mapping):
         """

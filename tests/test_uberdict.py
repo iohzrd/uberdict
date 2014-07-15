@@ -39,13 +39,13 @@ def test_dict_equality():
     assert ud == d
 
 
-def test_get_int_key():
+def test_getitem_int_key():
     b = udict()
     b[1] = 'one'
     assert b[1] == 'one'
 
 
-def test_get_none_key():
+def test_getitem_none_key():
     b = udict()
     b[None] = 'nope'
     assert b[None] == 'nope'
@@ -220,6 +220,11 @@ def test_get_missing_child_nodefault():
 
 def test_get_missing_child_default():
     assert udict(one=udict()).get('one.two', 3) == 3
+
+
+def test_get_nested_child():
+    ud = udict(one=udict(two=2))
+    assert ud.get('one.two') == 2
 
 
 def test_get_none_nodefault():

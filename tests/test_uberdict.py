@@ -252,6 +252,30 @@ def test_fromdict_nested_dicts():
     assert d['foo']['bar']['baz'] == 'bazbaz'
 
 
+def test_fromkeys_classmethod():
+    ud = udict.fromkeys([])
+    assert ud == udict()
+
+
+def test_fromkeys_no_value():
+    assert udict.fromkeys([]) == udict()
+    assert udict.fromkeys(range(5)) == udict((i, None) for i in range(5))
+
+
+def test_fromkeys_value():
+    ud = udict.fromkeys([], 1)
+    assert ud == udict()
+    assert ud == dict.fromkeys([], 1)
+
+    ud = udict.fromkeys(range(1), 1)
+    assert ud == udict.fromdict({0: 1})
+    assert ud == dict.fromkeys(range(1), 1)
+
+    ud = udict.fromkeys(range(10), 0)
+    assert ud == udict((i, 0) for i in range(10))
+    assert ud == dict.fromkeys(range(10), 0)
+
+
 def test_todict():
     ud = udict(foo='foofoo')
     d = ud.todict()
@@ -288,3 +312,23 @@ def test_pickle():
     assert isinstance(unpickled, udict)
     assert isinstance(unpickled['foo'], udict)
     assert isinstance(unpickled['foo']['blah'], dict)
+
+
+def test_copy():
+    orig = udict(
+        foo=udict(
+            bar={'baz': 'bazbaz'},
+            boo=udict(boz='bozboz')
+        )
+    )
+    assert isinstance(orig, udict)
+    assert isinstance(orig['foo'], udict)
+    assert isinstance(orig['foo']['bar'], dict)
+    assert isinstance(orig['foo']['boo'], udict)
+    copy = orig.copy()
+    assert isinstance(copy, udict)
+    assert orig == copy
+    assert copy == orig
+    assert copy.foo is orig.foo
+    assert copy.foo.bar is orig.foo.bar
+    assert copy.foo.boo is orig.foo.boo

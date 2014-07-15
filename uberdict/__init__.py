@@ -81,6 +81,10 @@ class UberDict(dict):
             return default
 
     @classmethod
+    def fromkeys(self, seq, value=None):
+        return UberDict((elem, value) for elem in seq)
+
+    @classmethod
     def fromdict(cls, mapping):
         """
         Create a new `UberDict` from the given `mapping` dict.
@@ -114,3 +118,12 @@ class UberDict(dict):
                 v = v.todict()
             d[k] = v
         return d
+
+    def copy(self):
+        """
+        Return a shallow copy of this `UberDict`.
+
+        For a deep copy, use `UberDict.fromdict` (as long as there aren't
+        plain dict values that you don't want converted to `UberDict`).
+        """
+        return UberDict(self)

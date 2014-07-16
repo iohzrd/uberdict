@@ -332,3 +332,80 @@ def test_copy():
     assert copy.foo is orig.foo
     assert copy.foo.bar is orig.foo.bar
     assert copy.foo.boo is orig.foo.boo
+
+
+def test_setdefault_value_plain_not_present():
+    ud = udict()
+    child = udict()
+    res = ud.setdefault('child', child)
+    assert ud['child'] is res
+    assert ud['child'] is child
+    assert set(ud.keys()) == set(['child'])
+
+
+def test_setdefault_value_plain_present():
+    child = udict()
+    ud = udict(child=child)
+    res = ud.setdefault('child', udict())
+    assert ud['child'] is child
+    assert ud['child'] is res
+
+
+def test_setdefault_value_dotted_key_not_present():
+    ud = udict(a=udict())
+    child = udict()
+    res = ud.setdefault('a.b', child)
+    assert res is child
+    assert ud['a.b'] is child
+
+
+def test_setdefault_value_dotted_key_present():
+    ud = udict.fromdict({
+        'a': {
+            'b': {
+                'c1': 'abc'
+            }
+        }
+    })
+    res = ud.setdefault('a.b', udict())
+    res['c2'] = 'cba'
+    assert set(ud.keys()) == set(['a'])
+    assert ud.get('a.b.c2') == 'cba'
+    assert ud.get('a.b.c1') == 'abc'
+
+
+def test_contains_plain_not_present():
+    ud = udict(foo='bar')
+    assert None not in ud
+    assert 'foo' in ud
+    assert 'bar' not in ud
+    ud.pop('foo')
+    assert ud == udict()
+    assert 'foo' not in ud
+
+
+def test_contains_plain_present():
+    assert 'foo' in udict(foo='bar')
+    assert 'bar' not in udict(foo='bar')
+    assert None in udict.fromdict({None: ''})
+    ud = udict.fromdict({1: 2, 3: 4})
+    assert 1 in ud
+    assert 2 not in ud
+    assert 3 in ud
+
+
+def test_contains_dotted_not_present():
+    assert 'a.b' not in udict()
+    assert 'foo.bar' not in udict(foo=udict(notbar='notbar'))
+
+
+def test_contains_dotted_present_nonleaf():
+    assert 'a.b' in udict(a=udict(b=udict(c=udict())))
+
+
+def test_contains_dotted_present_leaf():
+    assert 'a.b.c' in udict(a=udict(b=udict(c=udict())))
+
+
+def test_contains_dotted_partial():
+    assert 'a.b.c' not in udict(a=udict())

@@ -127,3 +127,23 @@ class UberDict(dict):
         plain dict values that you don't want converted to `UberDict`).
         """
         return UberDict(self)
+
+    def setdefault(self, key, default=None):
+        """
+        If `key` is in the dictionary, return its value.
+        If not, insert `key` with a value of `default` and return `default`,
+        which defaults to `None`.
+        """
+        try:
+            return self[key]
+        except KeyError:
+            self[key] = default
+            return default
+
+    def __contains__(self, key):
+        try:
+            self[key]
+        except KeyError:
+            return False
+        else:
+            return True

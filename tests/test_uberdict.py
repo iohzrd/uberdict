@@ -1,4 +1,4 @@
-from uberdict import UberDict as udict
+import sys
 
 try:
     import cPickle as pickle
@@ -6,6 +6,9 @@ except ImportError:
     import pickle
 
 import pytest
+
+
+from uberdict import UberDict as udict
 
 
 def test_empty():
@@ -648,6 +651,8 @@ def test_values_dotted_keys():
     assert sorted(ud.values()) == ['a.ba.b', 'bb']
 
 
+@pytest.mark.skipif(sys.version_info >= (3,),
+                    reason="only tested on python2")
 def test_has_key():
     ud = udict()
     assert not ud.has_key('a')  # noqa

@@ -329,6 +329,7 @@ def test_getattr_dotted_key():
     assert getattr(ud, 'a.b') == 'abab'
     assert getattr(ud, 'a') == uda
     assert ud.a == uda
+    assert ud.a.b == 'abab'
 
 
 def test_setattr():

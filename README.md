@@ -71,4 +71,35 @@ assert 'baz' not in d
 del d['foo']  # works too
 assert 'foo' not in d
 assert not hasattr(d, 'foo')
+
+# they don't treat dotted keys like 'a.b.c' specially,
+# unlike dict-style access
+d = {
+    'a': {
+        'b': 'a->b'
+    },
+    'a.b': 'a.b'
+}
+ud = udict.fromdict(d)
+setattr(ud, 'a.b', None)  # doesn't touch 'a'
+assert ud['a.b'] is None
+assert ud.a == d['a']
+assert ud.a.b == 'a->b'
+
+# keys containing dots are supported for dict-style access and
+# for attribute-style access using the getattr/setattr/delattr
+# methods, and a key containing a dot has precedence
+ud = udict.fromdict({
+    'a': {'b': 'a->b'},
+    'a.b': 'a.b'
+})
+assert ud['a.b'] == 'a.b'
+assert getattr(ud, 'a.b') == 'a.b'
+assert ud.a.b == 'a->b'
+del ud['a.b']  # dotted-key has precedence, so top-level entry removed
+assert ud['a'] == {'b': 'a->b'}
+del ud['a.b']  # no top-level key now, so nested entry removed
+assert ud == {'a': {}}
+del ud['a']
+assert ud == {}
 ```

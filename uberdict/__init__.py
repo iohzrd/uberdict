@@ -3,6 +3,15 @@ __version__ = '0.1'
 
 class UberDict(dict):
 
+    """
+    A dict that supports attribute-style access and hierarchical keys.
+
+    TODO: add info about key topics such as how dotted keys in a plain
+    dict are handled in an UberDict, how to add a dotted key
+    if needed, the relationship between get and getattr with regard
+    to dotted keys, etc.
+    """
+
     def __init__(self, *args, **kwargs):
         """
         Initialize a new `UberDict` using `dict.__init__`.
@@ -44,9 +53,9 @@ class UberDict(dict):
             super(UberDict, obj).__setitem__(terminal, value)
 
     def __delitem__(self, key):
-        if '.' not in key:
+        try:
             super(UberDict, self).__delitem__(key)
-        else:
+        except KeyError:
             tokens = key.split('.')
             non_terminals, terminal = tokens[:-1], tokens[-1]
             obj = self
@@ -61,16 +70,21 @@ class UberDict(dict):
 
     def __getattr__(self, key):
         try:
-            return self.__getitem__(key)
+            # no special treatement for dotted keys
+            return super(UberDict, self).__getitem__(key)
         except KeyError as e:
             raise AttributeError("no attribute '%s'" % (e.args[0],))
 
     def __setattr__(self, key, value):
+        # normal setattr behavior, except we put it in the dict
+        # instead of setting an attribute (i.e., dotted keys are
+        # treated as plain keys)
         super(UberDict, self).__setitem__(key, value)
 
     def __delattr__(self, key):
         try:
-            self.__delitem__(key)
+            # no special special for dotted keys
+            super(UberDict, self).__delitem__(key)
         except KeyError as e:
             raise AttributeError("no attribute '%s'" % (e.args[0]))
 
@@ -100,7 +114,9 @@ class UberDict(dict):
             v = mapping[k]  # py2/py3
             if isinstance(v, dict) and not isinstance(v, cls):
                 v = cls.fromdict(v)
-            ud[k] = v
+            # ensure that setting a dotted key in mapping is
+            # entered as a dotted key in the udict
+            super(UberDict, ud).__setitem__(k, v)
         return ud
 
     def todict(self):
@@ -147,3 +163,14 @@ class UberDict(dict):
             return False
         else:
             return True
+
+    def pop(self, key, *args):
+        try:
+            value = self[key]
+        except KeyError:
+            if args:
+                return args[0]
+            raise
+        else:
+            del self[key]
+            return value

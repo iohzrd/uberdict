@@ -1,5 +1,7 @@
 import sys
 
+from collections import Mapping
+
 try:
     import cPickle as pickle
 except ImportError:
@@ -8,41 +10,101 @@ except ImportError:
 import pytest
 
 
-from uberdict import UberDict as udict
+from uberdict import udict
 
 
-def test_empty():
-    assert len(udict()) == 0
+# test utility for getting at the "real" mappings of a dict
+def items(d):
+    """
+    Get the items of `d` (a dict or udict) in sorted order as
+    they would be returned if `d` were a plain dict.
+    """
+    try:
+        elems = dict.iteritems(d)
+    except AttributeError:
+        elems = dict.items(d)
+    return sorted(elems)
+
+
+def test_init_noargs():
+    assert items(udict()) == []
 
 
 def test_init_kwargs():
-    assert len(udict(one=1, two=2)) == 2
+    ud = udict(one=1, two=2)
+    assert items(ud) == [('one', 1), ('two', 2)]
 
 
-def test_init_list_arg():
-    assert len(udict([('one', 1), ('two', 2), ('three', 3)])) == 3
+def test_init_iterable_arg():
+    lst = [('one', 1), ('three', 3), ('two', 2)]
+    ud = udict(iter(lst))
+    assert items(ud) == lst
 
 
 def test_init_dict_arg():
-    assert udict(foo='bar') == udict({'foo': 'bar'})
+    d = {
+        'a': 1,
+        'b': 2,
+        'c': 3
+    }
+    ud = udict(d)
+    assert items(ud) == items(d)
+
+
+def test_init_type():
+    assert isinstance(udict(), udict)
+    assert isinstance(udict(), dict)
+
+
+def test_udict_is_dict_subclass():
+    assert issubclass(udict, dict)
+
+
+def test_udict_is_mapping():
+    assert isinstance(udict(), Mapping)
+
+
+def test_udict_is_mapping_subclass():
+    assert issubclass(udict, Mapping)
 
 
 def test_init_dict_arg_nested_dicts():
     d = {'foo': {'foo': 'bar'}}
     ud = udict(d)
     assert type(ud['foo']) is dict
+    assert items(d) == [('foo', udict(foo='bar'))]
 
 
-def test_init_dict_dotted_key():
-    d = {'a.b': 'abab', 'c': 'cc', 'a': {'b': 'abab'}}
+def test_init_dict_arg_dotted_key():
+    d = {'a.b': 'a.b', 'a': 'a'}
     ud = udict(d)
-    assert d == ud
-    assert ud == d
-    assert 'a.b' in ud
-    assert 'a' in ud
+    assert items(ud) == items(d)
 
 
-def test_dict_equality():
+def test_init_dict_arg_dotted_key_and_nested():
+    d = {'a.b': 'a.b', 'c': 'cc', 'a': {'b': 'a->b'}}
+    ud = udict(d)
+    elems = items(ud)
+    assert elems == [
+        ('a', {'b': 'a->b'}),
+        ('a.b', 'a.b'),
+        ('c', 'cc')
+    ]
+    assert type(elems[0][1]) is dict  # not a udict!
+
+
+def test_init_udict_arg():
+    ud = udict(a={'b': 'a->b'}, c=udict(d='c->d'))
+    elems = items(ud)
+    assert elems == [
+        ('a', {'b': 'a->b'}),
+        ('c', udict(d='c->d'))
+    ]
+    assert type(elems[0][1]) is dict
+    assert type(elems[1][1]) is udict
+
+
+def test_equality_with_dict():
     assert {} == udict()
     assert udict() == {}
     d = dict(foo=dict(bar='barbar'))
@@ -51,13 +113,11 @@ def test_dict_equality():
     assert ud == d
     assert {} != udict(x='x')
     assert {'x': 'x'} != udict()
-    assert {'foo.bar': ''} != udict('')
+    assert udict(a=None) != udict(a={})
 
 
-def test_dict_equality_dotted_key():
+def test_equality_with_dict_dotted_key():
     d = {'foo.bar': ''}
-    # the only way to get a dotted key into a udict is
-    # by creating the udict from a dict containing such a key
     ud = udict({'foo.bar': ''})
     assert d == ud
     assert ud == d
@@ -73,6 +133,8 @@ def test_equality():
     assert udict(a=0) != udict(b=0)
     assert udict(a=0) != udict(a='0')
     assert udict(a=0) != udict(a=1)
+    assert udict(a=None) != udict(a={})
+    assert udict(a={}) == udict(a=udict())
 
     ud1, ud2 = udict(a=udict()), udict(a=udict(a=None))
     assert ud1 != ud2
@@ -95,35 +157,63 @@ def test_getitem_none_key():
     assert ud[None] == 'nope'
 
 
-def test_getitem_top_level_success():
-    ud = udict(one=1)
-    assert ud['one'] == 1
-    assert ud.__getitem__('one') == 1
+def test_getitem_top_level_returns_value():
+    obj = object()
+    ud = udict(one=obj)
+    assert ud['one'] is obj
 
 
-def test_getitem_top_level_fail():
+def test_getitem_top_level_fail_raises_keyerror():
     ud = udict(one=1)
     with pytest.raises(KeyError):
         ud['two']
 
 
-def test_getitem_second_level_success():
-    ud = udict(one=udict(two=2))
-    assert ud['one.two'] == 2
-    assert ud.__getitem__('one.two') == 2
+def test_getitem_multilevel_returns_value():
+    ud = udict.fromdict({
+        'one': {
+            'two': 'one->two'
+        },
+        'a': {
+            'b': {'c': 'a->b->c'}
+        }
+    })
+    assert ud['one.two'] == 'one->two'
+    assert ud['a.b'] == {'c': 'a->b->c'}
+    assert ud['a.b.c'] == 'a->b->c'
 
 
-def test_getitem_second_level_fail():
-    ud = udict(one=udict(two=2))
+def test_getitem_multilevel_fail():
+    ud = udict.fromdict({
+        'one': {
+            'two': 'one->two'
+        },
+        'a': {
+            'b': {'c': 'a->b->c'}
+        }
+    })
     try:
         ud['one.three']
         pytest.fail()
     except KeyError as e:  # success
         # verify args contains first failing token
         assert e.args == ('three',)
+    try:
+        ud['a.b.x']
+        pytest.fail()
+    except KeyError as e:
+        assert e.args == ('x',)
+
+    with pytest.raises(TypeError):
+        # ud['a.b.c'] doesn't support indexing
+        ud['a.b.c.d']
 
 
-def test_getitem_nested_through_non_udict():
+def test_getitem_nested_through_non_dict_typeerror():
+    """
+    TypeError should be raised when trying to traverse through
+    an object that doesn't support `__getitem__`.
+    """
     ud = udict(one=udict(two=2))
     try:
         ud['one.two.three']
@@ -132,41 +222,73 @@ def test_getitem_nested_through_non_udict():
         assert e.args == ('three',)
 
 
-def test_getitem_dotted_key():
-    ud = udict({'a.b': 2})
-    assert ud['a.b'] == 2
+class BadDict(object):
+
+    def __init__(self, **kwargs):
+        self.d = kwargs
+
+    def __getitem__(self, key):
+        return self.d[key]
+
+
+def test_baddict():
+    bd = BadDict(a=BadDict(b='a->b'))
+    assert bd['a']['b'] == 'a->b'
     with pytest.raises(KeyError):
-        ud['a']
+        bd['missing']
+
+
+def test_getitem_nested_through_non_dict_keyerror():
+    """
+    KeyError should be raised when trying to traverse through
+    an object that does support `__getitem__` if the object
+    raises KeyError due to no such key.
+    """
+    ud = udict(
+        a=BadDict()
+    )
+    with pytest.raises(KeyError):
+        ud['a.b']
+
+
+def test_getitem_nested_through_non_dict_success():
+    ud = udict(a=BadDict(b=udict(c='a->b->c')))
+    assert ud['a.b'] == udict(c='a->b->c')
+    assert ud['a.b.c'] == 'a->b->c'
+
+
+def test_getitem_dotted_key_top_level_miss():
+    ud = udict({'a.b': 2})
+    with pytest.raises(KeyError):
+        ud['a.b']
 
 
 def test_setitem_int_key():
     ud = udict()
-    assert 1 not in ud
     ud[1] = 'one'
-    assert 1 in ud
+    assert items(ud) == [(1, 'one')]
 
 
 def test_setitem_none_key():
     ud = udict()
-    ud[None] = 'nope'
-    assert len(ud) == 1
+    ud[None] = 'None'
+    assert items(ud) == [(None, 'None')]
 
 
 def test_setitem_top_level():
     ud = udict()
     ud['one'] = 1
-    assert len(ud) == 1
+    assert items(ud) == [('one', 1)]
 
 
-def test_setitem_second_level_existing_first():
+def test_setitem_second_level_first_exists():
     ud = udict()
     ud['one'] = udict()
     ud['one.two'] = 2
-    assert len(ud) == 1
-    assert ud['one'] == udict(two=2)
+    assert items(ud) == [('one', udict(two=2))]
 
 
-def test_setitem_second_level_nonexisting_first():
+def test_setitem_second_level_first_missing():
     ud = udict()
     try:
         ud['one.two'] = 2
@@ -175,14 +297,13 @@ def test_setitem_second_level_nonexisting_first():
         assert e.args == ('one',)
 
 
-def test_delitem_top_level_existing():
-    ud = udict(one=1)
+def test_delitem_top_level_exists():
+    ud = udict({'one': 1})
     del ud['one']
-    assert len(ud) == 0
-    assert 'one' not in ud
+    assert items(ud) == []
 
 
-def test_delitem_top_level_nonexisting():
+def test_delitem_top_level_missing():
     ud = udict(one=1)
     try:
         del ud['two']
@@ -191,7 +312,7 @@ def test_delitem_top_level_nonexisting():
         assert e.args == ('two',)
 
 
-def test_delitem_second_level_non_existing_first():
+def test_delitem_second_level_first_missing():
     ud = udict(one=1)
     try:
         del ud['two.three']
@@ -200,8 +321,12 @@ def test_delitem_second_level_non_existing_first():
         assert e.args == ('two',)
 
 
-def test_delitem_second_level_fail_existing_first():
-    ud = udict(one=udict(two=2))
+def test_delitem_second_level_first_exists_fail():
+    ud = udict.fromdict({
+        'one': {
+            'two': 'one->two'
+        }
+    })
     try:
         del ud['one.three']
         pytest.fails()
@@ -210,13 +335,20 @@ def test_delitem_second_level_fail_existing_first():
 
 
 def test_delitem_second_level_success():
-    ud = udict(one=udict(two=2, blah=udict(three=3)))
+    ud = udict.fromdict({
+        'one': {
+            'two': 2,
+            'blah': {
+                'three': 3
+            }
+        }
+    })
     del ud['one.blah']
-    assert 'one' in ud
-    assert 'two' in ud['one']
-    assert ud == udict(one=udict(two=2))
+    assert items(ud) == [
+        ('one', udict(two=2))
+    ]
     del ud['one.two']
-    assert ud == udict(one=udict())
+    assert items(ud) == [('one', udict())]
 
 
 def test_delitem_dotted_key():
@@ -224,14 +356,8 @@ def test_delitem_dotted_key():
     ud = udict(d)
     with pytest.raises(KeyError):
         del ud['a']
-    assert ud == udict(d)
-    del ud['a.b']
-    assert ud == udict()
-
-    d = {'a.b': '', 'a': ''}
-    ud = udict(d)
-    del ud['a.b']
-    assert ud == udict(a='')
+    with pytest.raises(KeyError):
+        del ud['a.b']
 
 
 def test_pop_present():
@@ -272,8 +398,8 @@ def test_pop_dotted():
     }
     ud = udict.fromdict(d)
     val = ud.pop('a.b')
-    assert val == 'a.b'
-    assert ud['a'] == udict(b='a->b')
+    assert val == 'a->b'
+    assert ud['a'] == udict()
 
 
 def test_popitem_empty():
@@ -332,7 +458,7 @@ def test_getattr_dotted_key():
     assert ud.a.b == 'abab'
 
 
-def test_setattr():
+def test_setattr_objectstyle():
     ud = udict()
     ud.one = 1
     assert len(ud) == 1
@@ -344,9 +470,11 @@ def test_setattr():
 
 def test_setattr_dotted_key():
     ud = udict(one=udict(two=2))
-    setattr(ud, 'one.two', 3)
-    assert ud['one']['two'] == 2
-    assert ud['one.two'] == 3
+    setattr(ud, 'one.two', 'onetwo')
+    assert ud['one.two'] == 2
+    assert getattr(ud, 'one.two') == 'onetwo'
+    assert ud['one'] == udict(two=2)
+    assert getattr(ud, 'one') == udict(two=2)
 
 
 def test_delattr_success():
@@ -364,17 +492,38 @@ def test_delattr_fail():
         assert e.args == ("no attribute 'two'",)
 
 
-def test_delattr_dotted_key():
-    orig = udict.fromdict({
-        'one': {
-            'two': 2
-        },
-        'one.two': 3
-    })
-    ud = udict.fromdict(orig)
+def test_delattr_dotted_key_present():
+    d = {
+        'one': {'two': 'one->two'}
+    }
+    ud = udict(d)
     del ud['one.two']
-    assert 'one.two' in ud
-    assert ud['one'] == udict(two=2)
+    assert items(ud) == [('one', {})]
+
+
+def test_delattr_dotted_key_missing():
+    d = {
+        'one.two': 'one.two'
+    }
+    ud = udict(d)
+    with pytest.raises(KeyError):
+        del ud['one.two']
+    assert ud == d
+
+
+def test_delattr_dotted_key_present_dotted_toplevel():
+    d = {
+        'one.two': 'one.two',
+        'one': {
+            'two': 'one->two'
+        }
+    }
+    ud = udict.fromdict(d)
+    del ud['one.two']
+    assert items(ud) == [
+        ('one', udict()),
+        ('one.two', 'one.two')
+    ]
 
 
 def test_get_missing_nodefault():
@@ -413,27 +562,47 @@ def test_fromdict_classmethod():
 
 
 def test_fromdict_nested_dicts():
-    d = dict(foo=dict(foo='foofoo'))
+    d = {
+        'a': {
+            'b': {
+                'c': 'a->b->c'
+            }
+        }
+    }
     ud = udict.fromdict(d)
-    assert type(ud['foo']) is udict
-    assert ud == udict(foo=udict(foo='foofoo'))
-    d['foo']['bar'] = dict(baz='bazbaz')
-    ud = udict.fromdict(d)
-    assert type(ud['foo']['bar']) is udict
-    assert d['foo']['bar']['baz'] == 'bazbaz'
+    elems = items(ud)
+    assert elems == [
+        ('a', udict({'b': udict({'c': 'a->b->c'})}))
+    ]
+    assert type(elems[0][1]) is udict
 
 
 def test_fromdict_dotted_key():
-    d = {'a.b': ''}
+    d = {
+        'a.b': 'a.b',
+        'a': {
+            'b': 'a->b'
+        }
+    }
     ud = udict.fromdict(d)
-    assert 'a.b' in ud
-    assert 'a' not in ud
-    assert d == ud
-    assert ud == d
-    d = {'a.b': 'ab', 'a': {'b': ''}}
-    ud = udict.fromdict(d)
-    assert 'a.b' in ud
-    assert 'a' in ud
+    elems = items(ud)
+    assert elems == [
+        ('a', udict(b='a->b')),
+        ('a.b', 'a.b')
+    ]
+    assert type(elems[0][1]) is udict
+
+
+def test_fromdict_udicts():
+    d = {
+        'one.two': 'one.two',
+        'one': {
+            'two': 'one->two'
+        }
+    }
+    orig = udict.fromdict(d)
+    ud = udict.fromdict(orig)
+    assert items(ud) == items(d)
 
 
 def test_fromkeys_classmethod():
@@ -460,6 +629,16 @@ def test_fromkeys_value():
     assert ud == dict.fromkeys(range(10), 0)
 
 
+def test_fromkeys_dotted_keys():
+    elems = ['a.b', 'a', 'b']
+    ud = udict.fromkeys(elems, udict())
+    assert items(ud) == [
+        ('a', udict()),
+        ('a.b', udict()),
+        ('b', udict())
+    ]
+
+
 def test_todict():
     ud = udict(foo='foofoo')
     d = ud.todict()
@@ -473,17 +652,24 @@ def test_todict_nested():
     d = ud.todict()
     assert isinstance(d['foo'], dict)
     assert not isinstance(d['foo'], udict)
+    assert items(d) == [
+        ('foo', {'bar': 'barbar'})
+    ]
 
 
 def test_todict_dotted_keys():
     orig = {
-        'one.two': 'dotted',
-        'one': {'two': 'nested'}
+        'one.two': 'one.two',
+        'one': {'two': 'one->two'}
     }
     ud = udict.fromdict(orig)
     assert isinstance(ud['one'], udict)
     d = ud.todict()
-    assert d == orig
+    assert items(d) == [
+        ('one', {'two': 'one->two'}),
+        ('one.two', 'one.two')
+    ]
+    assert type(items(d)[0][1]) is dict
 
 
 def test_keys():
@@ -494,26 +680,26 @@ def test_keys():
 
 
 def test_keys_dotted():
-    d = {'a.b': ''}
+    d = {
+        'a.b': 'a.b',
+        'a': {'b': 'a->b'}
+    }
     ud = udict(d)
-    assert set(ud.keys()) == set(['a.b'])
-
-    ud['a'] = ''
-    assert set(ud.keys()) == set(['a.b', 'a'])
+    assert sorted(ud.keys()) == sorted(d.keys())
 
 
 def test_pickle():
-    orig = udict(
-        foo=udict(
-            bar='barbar',
-            blah={'blah': 'blahblah'}
-        )
-    )
+    d = {
+        'one': {
+            'two': 'one->two'
+        },
+        'one.two': 'one.two'
+    }
+    orig = udict.fromdict(d)
     unpickled = pickle.loads(pickle.dumps(orig))
     assert unpickled == orig
     assert isinstance(unpickled, udict)
-    assert isinstance(unpickled['foo'], udict)
-    assert isinstance(unpickled['foo']['blah'], dict)
+    assert isinstance(unpickled['one'], udict)
 
 
 def test_copy():
@@ -671,11 +857,13 @@ def test_update():
     ud = udict.fromdict(orig)
     ud.update({'a': 'a'})
     assert ud['a'] == 'a'
-    assert ud['a.b'] == orig['a.b']
     assert ud['c'] == orig['c']
+    with pytest.raises(TypeError):
+        ud['a.b']  # ud['a'] doesn't support __getitem__
+    assert getattr(ud, 'a.b') == 'a.b'
 
     ud = udict.fromdict(orig)
     ud.update(udict({'a.b': 'b.a'}))
-    assert ud['a.b'] == 'b.a'
+    assert ud['a.b'] == 'a->b'
     assert ud['a'] == udict(b='a->b')
     assert ud['c'] == 'c'

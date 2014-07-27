@@ -3,9 +3,13 @@
 `uberdict.udict` is a Python `dict` class that supports attribute-style access
 and hierarchical keys:
 
-> `my_udict.result.status.code` is equivalent to `my_udict['result']['status']['code']`
+```python
+my_udict.result.status.code  # is equivalent to:
+my_udict['result']['status']['code']
 
-> `my_udict.get('result.status.code', default)` is equivalent to `my_udict.get('result', {}).get('status', {}).get('code', default)`
+my_udict.get('result.status.code', default)  # is equivalent to:
+my_udict.get('result', {}).get('status', {}).get('code', default)
+```
 
 Tested under py26, py27, py32, py33, py34, and pypy.
 
@@ -106,7 +110,8 @@ ud = udict.fromdict(d)
 setattr(ud, 'a.b', None)  # doesn't touch 'a'
 assert ud['a.b'] is None
 assert ud.a == d['a']
-assert ud.a.b == 'a->b'```
+assert ud.a.b == 'a->b'
+```
 
 ## Dict-Style Access and Hierarchical Keys
 

@@ -1,77 +1,58 @@
-__version__ = '0.1'
+__version__ = '0.2'
+
+ALL = ['udict']
+
+import sys
 
 
-class UberDict(dict):
+class udict(dict):
 
     """
     A dict that supports attribute-style access and hierarchical keys.
-
-    TODO: add info about key topics such as how dotted keys in a plain
-    dict are handled in an UberDict, how to add a dotted key
-    if needed, the relationship between get and getattr with regard
-    to dotted keys, etc.
     """
 
     def __init__(self, *args, **kwargs):
         """
-        Initialize a new `UberDict` using `dict.__init__`.
+        Initialize a new `udict` using `dict.__init__`.
 
-        When passing in a plain dict arg, this won't do any special
-        handling of dict values, which will remain plain dicts inside
-        the `UberDict`. For a recursive init that will convert all
-        dict values in a dict, use `UberDict.fromdict`.
+        When passing in a dict arg, this won't do any special
+        handling of values that are dicts. They will remain plain dicts inside
+        the `udict`. For a recursive init that will convert all
+        dict values in a dict to udicts, use `udict.fromdict`.
+
+        Likewise, dotted keys will not be treated specially, so something
+        like `udict({'a.b': 'a.b'})` is equivalent to `ud = udict()` followed
+        by `setattr(ud, 'a.b', 'a.b')`.
         """
-        super(UberDict, self).__init__(*args, **kwargs)
+        dict.__init__(self, *args, **kwargs)
 
     def __getitem__(self, key):
-        try:
-            return super(UberDict, self).__getitem__(key)
-        except KeyError:
-            if not isinstance(key, str) or '.' not in key:
+        if not isinstance(key, str) or '.' not in key:
+            try:
+                return dict.__getitem__(self, key)
+            except KeyError:
                 raise
-            tokens = key.split('.')
-            obj = self
-            for token in tokens:
-                if not isinstance(obj, dict):
-                    raise KeyError(token)
-                obj = super(UberDict, obj).__getitem__(token)
-            return obj
+        obj, token = _descend(self, key)
+        return _get(obj, token)
 
     def __setitem__(self, key, value):
         if not isinstance(key, str) or '.' not in key:
-            super(UberDict, self).__setitem__(key, value)
-        else:
-            tokens = key.split('.')
-            non_terminals, terminal = tokens[:-1], tokens[-1]
-            obj = self
-            for token in non_terminals:
-                # can't automatically create intermediate UberDicts
-                # for missing non-terminal tokens, because it would be
-                # impossible to do the same for __setattr__, and
-                # consistency across item/attr access styles is more important
-                obj = obj[token]
-            super(UberDict, obj).__setitem__(terminal, value)
+            return dict.__setitem__(self, key, value)
+
+        obj, token = _descend(self, key)
+        return dict.__setitem__(obj, token, value)
 
     def __delitem__(self, key):
-        try:
-            super(UberDict, self).__delitem__(key)
-        except KeyError:
-            tokens = key.split('.')
-            non_terminals, terminal = tokens[:-1], tokens[-1]
-            obj = self
-            for token in non_terminals:
-                child = obj.get(token)
-                if child is None:
-                    # TODO: may want to distinguish between a
-                    # None in the bag and no such item
-                    raise KeyError(token)
-                obj = child
-            super(UberDict, obj).__delitem__(terminal)
+        if not isinstance(key, str) or '.' not in key:
+            dict.__delitem__(self, key)
+            return
+        obj, token = _descend(self, key)
+        del obj[token]
 
     def __getattr__(self, key):
         try:
             # no special treatement for dotted keys
-            return super(UberDict, self).__getitem__(key)
+            return dict.__getitem__(self, key)
         except KeyError as e:
             raise AttributeError("no attribute '%s'" % (e.args[0],))
 
@@ -79,14 +60,21 @@ class UberDict(dict):
         # normal setattr behavior, except we put it in the dict
         # instead of setting an attribute (i.e., dotted keys are
         # treated as plain keys)
-        super(UberDict, self).__setitem__(key, value)
+        dict.__setitem__(self, key, value)
 
     def __delattr__(self, key):
         try:
-            # no special special for dotted keys
-            super(UberDict, self).__delitem__(key)
+            # no special handling of dotted keys
+            dict.__delitem__(self, key)
         except KeyError as e:
             raise AttributeError("no attribute '%s'" % (e.args[0]))
+
+    def __reduce__(self):
+        # pickle the contents of a udict as a list of items;
+        # __getstate__ and __setstate__ aren't needed
+        constructor = self.__class__
+        instance_args = (list(iteritems(self)),)
+        return constructor, instance_args
 
     def get(self, key, default=None):
         try:
@@ -96,53 +84,51 @@ class UberDict(dict):
 
     @classmethod
     def fromkeys(self, seq, value=None):
-        return UberDict((elem, value) for elem in seq)
+        return udict((elem, value) for elem in seq)
 
     @classmethod
     def fromdict(cls, mapping):
         """
-        Create a new `UberDict` from the given `mapping` dict.
+        Create a new `udict` from the given `mapping` dict.
 
-        The resulting `UberDict` will be equivalent to the input
+        The resulting `udict` will be equivalent to the input
         `mapping` dict but with all dict instances (recursively)
-        converted to an `UberDict` instance.  If you don't want
+        converted to an `udict` instance.  If you don't want
         this behavior (you want sub-dicts to remain plain dicts),
-        use `UberDict(my_dict)` instead.
+        use `udict(my_dict)` instead.
         """
         ud = cls()
         for k in mapping:
-            v = mapping[k]  # py2/py3
-            if isinstance(v, dict) and not isinstance(v, cls):
+            v = dict.__getitem__(mapping, k)  # okay for py2/py3
+            if isinstance(v, dict):
                 v = cls.fromdict(v)
-            # ensure that setting a dotted key in mapping is
-            # entered as a dotted key in the udict
-            super(UberDict, ud).__setitem__(k, v)
+            dict.__setitem__(ud, k, v)
         return ud
 
     def todict(self):
         """
-        Create a plain `dict` from this `UberDict`.
+        Create a plain `dict` from this `udict`.
 
-        The resulting `dict` will be equivalent to this `UberDict`
-        but with all `UberDict` instances (recursively) converted to
+        The resulting `dict` will be equivalent to this `udict`
+        but with all `udict` instances (recursively) converted to
         a plain `dict` instance.
         """
         d = dict()
         for k in self:
-            v = self[k]  # py2/py3
-            if isinstance(v, UberDict):
+            v = dict.__getitem__(self, k)
+            if isinstance(v, udict):
                 v = v.todict()
             d[k] = v
         return d
 
     def copy(self):
         """
-        Return a shallow copy of this `UberDict`.
+        Return a shallow copy of this `udict`.
 
-        For a deep copy, use `UberDict.fromdict` (as long as there aren't
-        plain dict values that you don't want converted to `UberDict`).
+        For a deep copy, use `udict.fromdict` (as long as there aren't
+        plain dict values that you don't want converted to `udict`).
         """
-        return UberDict(self)
+        return udict(self)
 
     def setdefault(self, key, default=None):
         """
@@ -165,12 +151,65 @@ class UberDict(dict):
             return True
 
     def pop(self, key, *args):
+        if not isinstance(key, str) or '.' not in key:
+            return dict.pop(self, key, *args)
         try:
-            value = self[key]
+            obj, token = _descend(self, key)
         except KeyError:
             if args:
                 return args[0]
             raise
         else:
-            del self[key]
-            return value
+            return dict.pop(obj, token, *args)
+
+
+# py2/py3 compatibility
+if sys.version_info[0] == 2:
+    def iteritems(d):
+        return d.iteritems()
+else:
+    def iteritems(d):
+        return d.items()
+
+
+# helper to do careful and consistent `obj[name]`
+def _get(obj, name):
+    """
+    Get the indexable value with given `name` from `obj`, which may be
+    a `dict` (or subclass) or a non-dict that has a `__getitem__` method.
+    """
+    try:
+        # try to get value using dict's __getitem__ descriptor first
+        return dict.__getitem__(obj, name)
+    except TypeError:
+        # if it's a dict, then preserve the TypeError
+        if isinstance(obj, dict):
+            raise
+        # otherwise try one last time, relying on __getitem__ if any
+        return obj[name]
+
+
+# helper for common use case of traversing a path like 'a.b.c.d'
+# to get the 'a.b.c' object and do something to it with the 'd' token
+def _descend(obj, key):
+    """
+    Descend on `obj` by splitting `key` on '.' (`key` must contain at least
+    one '.') and using `get` on each token that results from splitting
+    to fetch the successive child elements, stopping on the next-to-last.
+
+     A `__getitem__` would do `dict.__getitem__(value, token)` with the
+     result, and a `__setitem__` would do `dict.__setitem__(value, token, v)`.
+
+    :returns:
+    (value, token) - `value` is the next-to-last object found, and
+    `token` is the last token in the `key` (the only one that wasn't consumed
+    yet).
+
+
+    """
+    tokens = key.split('.')
+    assert len(tokens) > 1
+    value = obj
+    for token in tokens[:-1]:
+        value = _get(value, token)
+    return value, tokens[-1]

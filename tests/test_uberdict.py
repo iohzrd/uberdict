@@ -1,5 +1,3 @@
-# -*- cod --- ing: utf-8 -*-
-
 import sys
 
 from collections import Mapping

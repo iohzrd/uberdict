@@ -58,7 +58,7 @@ setup(
     test_suite='tests',
     classifiers=[
         'Programming Language :: Python',
-        'Development Status :: 2 - Pre-Alpha'
+        'Development Status :: 2 - Beta'
         'Natural Language :: English',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',

@@ -1,5 +1,9 @@
 __version__ = '0.1'
 
+ALL = ['udict']
+
+import sys
+
 
 class udict(dict):
 
@@ -25,60 +29,37 @@ class udict(dict):
         like `udict({'a.b': 'a.b'})` is equivalent to `ud = udict()` followed
         by `setattr(ud, 'a.b', 'a.b')`.
         """
-        super(udict, self).__init__(*args, **kwargs)
+        dict.__init__(self, *args, **kwargs)
 
     def __getitem__(self, key):
         if not isinstance(key, str) or '.' not in key:
-            return dict.__getitem__(self, key)
-            # return dict.__getitem__(self, key)
-            # return _getitem(self, key)
-        tokens = key.split('.')
-        obj = self
-        for token in tokens:
             try:
-                obj = dict.__getitem__(obj, token)
-            except TypeError:
-                if isinstance(obj, dict) or not hasattr(obj, '__getitem__'):
-                    # either it's a dict with no such mapping or a non-dict
-                    # that we can't access as if it were a dict
-                    raise KeyError(token)
-                # a non-dict that could have a mapping
-                obj = obj[token]
-        return obj
+                return dict.__getitem__(self, key)
+            except KeyError:
+                raise
+        obj, token = _descend(self, key)
+        return _get(obj, token)
 
     def __setitem__(self, key, value):
+        # print('__setitem__', self, key, value)
         if not isinstance(key, str) or '.' not in key:
-            return super(udict, self).__setitem__(key, value)
-        tokens = key.split('.')
-        non_terminals, terminal = tokens[:-1], tokens[-1]
-        obj = self
-        for token in non_terminals:
-            # can't automatically create intermediate udicts
-            # for missing non-terminal tokens, because it would be
-            # impossible to do the same for __setattr__, and
-            # consistency across item/attr access styles is more important
-            obj = obj[token]
-        return super(udict, obj).__setitem__(terminal, value)
+            return dict.__setitem__(self, key, value)
+
+        obj, token = _descend(self, key)
+        return dict.__setitem__(obj, token, value)
 
     def __delitem__(self, key):
-        print('__delitem__:', self, key)
+        # print('__delitem__:', self, key)
         if not isinstance(key, str) or '.' not in key:
             dict.__delitem__(self, key)
             return
-
-        tokens = key.split('.')
-        non_terminals, terminal = tokens[:-1], tokens[-1]
-        obj = self
-        print('non_terminals:', non_terminals)
-        print('terminal:', terminal)
-        for token in non_terminals:
-            obj = obj[token]
-        del obj[terminal]
+        obj, token = _descend(self, key)
+        del obj[token]
 
     def __getattr__(self, key):
         try:
             # no special treatement for dotted keys
-            return super(udict, self).__getitem__(key)
+            return dict.__getitem__(self, key)
         except KeyError as e:
             raise AttributeError("no attribute '%s'" % (e.args[0],))
 
@@ -86,14 +67,21 @@ class udict(dict):
         # normal setattr behavior, except we put it in the dict
         # instead of setting an attribute (i.e., dotted keys are
         # treated as plain keys)
-        super(udict, self).__setitem__(key, value)
+        dict.__setitem__(self, key, value)
 
     def __delattr__(self, key):
         try:
             # no special special for dotted keys
-            super(udict, self).__delitem__(key)
+            dict.__delitem__(self, key)
         except KeyError as e:
             raise AttributeError("no attribute '%s'" % (e.args[0]))
+
+    def __reduce__(self):
+        # pickle the contents of a udict as a list of items;
+        # __getstate__ and __setstate__ aren't needed
+        constructor = self.__class__
+        instance_args = (list(iteritems(self)),)
+        return constructor, instance_args
 
     def get(self, key, default=None):
         try:
@@ -172,15 +160,63 @@ class udict(dict):
     def pop(self, key, *args):
         if not isinstance(key, str) or '.' not in key:
             return dict.pop(self, key, *args)
-        tokens = key.split('.')
-        non_terminals, terminal = tokens[:-1], tokens[-1]
-        obj = self
         try:
-            for token in non_terminals:
-                obj = dict.__getitem__(obj, token)
+            obj, token = _descend(self, key)
         except KeyError:
             if args:
                 return args[0]
             raise
         else:
-            return dict.pop(obj, terminal, *args)
+            return dict.pop(obj, token, *args)
+
+
+# py2/py3 compatibility
+if sys.version_info[0] == 2:
+    def iteritems(d):
+        return d.iteritems()
+else:
+    def iteritems(d):
+        return d.items()
+
+
+# helper to do careful and consistent `obj[name]`
+def _get(obj, name):
+    """
+    Get the indexable value with given `name` from `obj`, which may be
+    a `dict` (or subclass) or a non-dict that has a `__getitem__` method.
+    """
+    try:
+        # try to get value using dict's __getitem__ descriptor first
+        return dict.__getitem__(obj, name)
+    except TypeError:
+        # if it's a dict, then preserve the TypeError
+        if isinstance(obj, dict):
+            raise
+        # otherwise try one last time, relying on __getitem__ if any
+        return obj[name]
+
+
+# helper for common use case of traversing a path like 'a.b.c.d'
+# to get the 'a.b.c' object and do something to it with the 'd' token
+def _descend(obj, key):
+    """
+    Descend on `obj` by splitting `key` on '.' (`key` must contain at least
+    one '.') and using `get` on each token that results from splitting
+    to fetch the successive child elements, stopping on the next-to-last.
+
+     A `__getitem__` would do `dict.__getitem__(value, token)` with the
+     result, and a `__setitem__` would do `dict.__setitem__(value, token, v)`.
+
+    :returns:
+    (value, token) - `value` is the next-to-last object found, and
+    `token` is the last token in the `key` (the only one that wasn't consumed
+    yet).
+
+
+    """
+    tokens = key.split('.')
+    assert len(tokens) > 1
+    value = obj
+    for token in tokens[:-1]:
+        value = _get(value, token)
+    return value, tokens[-1]

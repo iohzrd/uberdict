@@ -1,3 +1,5 @@
+# -*- cod --- ing: utf-8 -*-
+
 import sys
 
 from collections import Mapping
@@ -6,6 +8,19 @@ try:
     import cPickle as pickle
 except ImportError:
     import pickle
+
+if sys.version_info[0] < 3:
+    def b(s):
+        return s.encode('utf8') if isinstance(s, unicode) else s
+
+    def u(s):
+        return s.decode('utf8') if isinstance(s, str) else s
+else:
+    def b(s):
+        return s.encode('utf8') if isinstance(s, str) else s
+
+    def u(s):
+        return s.decode('utf8') if isinstance(s, bytes) else s
 
 import pytest
 
@@ -16,7 +31,7 @@ from uberdict import udict
 # test utility for getting at the "real" mappings of a dict
 def items(d):
     """
-    Get the items of `d` (a dict or udict) in sorted order as
+    Get the items of `d` (a dict/udict) in sorted order as
     they would be returned if `d` were a plain dict.
     """
     try:
@@ -24,6 +39,20 @@ def items(d):
     except AttributeError:
         elems = dict.items(d)
     return sorted(elems)
+
+
+@pytest.fixture
+def dict_():
+    return {
+        'a': {'b': 'a->b'},
+        'a.b': 'a.b',
+        'c': 'c'
+    }
+
+
+@pytest.fixture
+def udict_(dict_):
+    return udict.fromdict(dict_)
 
 
 def test_init_noargs():
@@ -36,9 +65,9 @@ def test_init_kwargs():
 
 
 def test_init_iterable_arg():
-    lst = [('one', 1), ('three', 3), ('two', 2)]
+    lst = [('one', 1), ('two', 2), ('three', 3)]
     ud = udict(iter(lst))
-    assert items(ud) == lst
+    assert items(ud) == sorted(lst)
 
 
 def test_init_dict_arg():
@@ -82,7 +111,11 @@ def test_init_dict_arg_dotted_key():
 
 
 def test_init_dict_arg_dotted_key_and_nested():
-    d = {'a.b': 'a.b', 'c': 'cc', 'a': {'b': 'a->b'}}
+    d = {
+        'a.b': 'a.b',
+        'c': 'cc',
+        'a': {'b': 'a->b'}
+    }
     ud = udict(d)
     elems = items(ud)
     assert elems == [
@@ -94,7 +127,11 @@ def test_init_dict_arg_dotted_key_and_nested():
 
 
 def test_init_udict_arg():
-    ud = udict(a={'b': 'a->b'}, c=udict(d='c->d'))
+    orig = udict({
+        'a': {'b': 'a->b'},
+        'c': udict({'d': 'c->d'})
+    })
+    ud = udict(orig)
     elems = items(ud)
     assert elems == [
         ('a', {'b': 'a->b'}),
@@ -107,7 +144,7 @@ def test_init_udict_arg():
 def test_equality_with_dict():
     assert {} == udict()
     assert udict() == {}
-    d = dict(foo=dict(bar='barbar'))
+    d = {'foo': {'bar': 'barbar'}}
     ud = udict(foo=udict(bar='barbar'))
     assert d == ud
     assert ud == d
@@ -145,7 +182,7 @@ def test_equality():
     assert ud2 != ud1
 
 
-def test_getitem_int_key():
+def test_getitem_nonstring_key():
     ud = udict()
     ud[1] = 'one'
     assert ud[1] == 'one'
@@ -155,6 +192,19 @@ def test_getitem_none_key():
     ud = udict()
     ud[None] = 'nope'
     assert ud[None] == 'nope'
+
+
+# @pytest.mark.skipif('sys.version_info[0] > 2')
+def test_getitem_bytes_key():
+    ud = udict()
+    ud[b('one')] = 1
+    assert ud[b('one')] == 1
+
+
+def test_getitem_unicode_key():
+    ud = udict()
+    ud[u('one')] = 1
+    assert ud[u('one')] == 1
 
 
 def test_getitem_top_level_returns_value():
@@ -215,11 +265,8 @@ def test_getitem_nested_through_non_dict_typeerror():
     an object that doesn't support `__getitem__`.
     """
     ud = udict(one=udict(two=2))
-    try:
+    with pytest.raises(TypeError):
         ud['one.two.three']
-        pytest.fail()
-    except KeyError as e:
-        assert e.args == ('three',)
 
 
 class BadDict(object):
@@ -688,16 +735,36 @@ def test_keys_dotted():
     assert sorted(ud.keys()) == sorted(d.keys())
 
 
-def test_pickle():
-    d = {
+def test_pickle_dumpsloads_simple():
+    orig = udict({'one': 1, 'two': 2})
+    unpickled = pickle.loads(pickle.dumps(orig))
+    assert items(unpickled) == items(orig)
+    assert isinstance(unpickled, udict)
+
+
+def test_pickle_dumpsloads_dotted():
+    orig = udict({'one.two': 'one.two'})
+    pickled = pickle.dumps(orig)
+    unpickled = pickle.loads(pickled)
+    assert items(unpickled) == items(orig)
+
+
+def test_pickle_dumpsloads_nested():
+    orig = udict({'one': {'two': 'one->two'}})
+    unpickled = pickle.loads(pickle.dumps(orig))
+    assert items(unpickled) == items(orig)
+
+
+def test_pickle_dumpsloads_nested_dotted():
+    orig = udict.fromdict({
         'one': {
             'two': 'one->two'
         },
         'one.two': 'one.two'
-    }
-    orig = udict.fromdict(d)
+    })
     unpickled = pickle.loads(pickle.dumps(orig))
-    assert unpickled == orig
+    # assert unpickled == orig
+    assert items(unpickled) == items(orig)
     assert isinstance(unpickled, udict)
     assert isinstance(unpickled['one'], udict)
 

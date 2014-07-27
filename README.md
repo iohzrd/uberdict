@@ -110,7 +110,8 @@ ud = udict.fromdict(d)
 setattr(ud, 'a.b', None)  # doesn't touch 'a'
 assert ud['a.b'] is None
 assert ud.a == d['a']
-assert ud.a.b == 'a->b'```
+assert ud.a.b == 'a->b'
+```
 
 ## Dict-Style Access and Hierarchical Keys
 

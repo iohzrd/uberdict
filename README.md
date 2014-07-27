@@ -190,8 +190,9 @@ In order to avoid such ambiguities, dict-style access like `ud['a.b']` or
 `ud.get('a.b')` is *always* interpreted as if it were `ud['a']['b']` or
 `ud.get('a', {}).get('b')`, respectively. That means you could never access the
 top-level `'a.b'` in the `udict` above using dict-style access. You'll either
-get the value of a nested `udict` or get a `KeyError` (or default value in
-case of `udict.get`). To access the top-level `'a.b'` mapping,
+get the value of a nested `udict`, get a `KeyError` (or default value in
+case of `udict.get`), or get a `TypeError` in some cases (following normal
+Python dict behavior). To access the top-level `'a.b'` mapping,
 use `getattr(ud, 'a.b')` instead.  The attribute-style accessors (`hasattr`,
 `getattr`, `setattr`, and `delattr`) *always* interpret a key literally, with
 no special treatment of keys that contain dots.
@@ -204,29 +205,29 @@ Thus, the simple rule to remember is:
 
 ## Reasoning about udict Operations
 
-The following table shows how accessing a value on a `udict` "desugars" to
-an equivalent sequence of operations on a plain `dict`:
+The following table shows how accessing a value on a `udict` corresponds
+to one or more operations on a plain `dict` that yield the same result:
 
 
-| Udict Operation        | Equivalent Dict Operation(s) |
+| udict operation        | dict operation(s)            |
 | ---------------------- | ---------------------------- |
 | ud['a']                | d['a']                       |
 | ud.get('a')            | d.get('a')                   |
 | ud.get('a', 42)        | d.get('a', 42)               |
 | ud.a                   | d['a']                       |
-| getattr(d, 'a')        | d['a']                       |
-| getattr(d, 'a', 42)    | d.get('a', 42)               |
+| getattr(ud, 'a')       | d['a']                       |
+| getattr(ud, 'a', 42)   | d.get('a', 42)               |
 | ud['a.b']              | d['a']['b']                  |
 | ud.get('a.b')          | d.get('a', {}).get('b')      |
 | ud.get('a.b', 42)      | d.get('a', {}).get('b', 42)  |
-| getattr(d, 'a.b')      | d['a.b']                     |
-| getattr(d, 'a.b', 42)  | d.get('a.b', 42)             |
+| getattr(ud, 'a.b')     | d['a.b']                     |
+| getattr(ud, 'a.b', 42) | d.get('a.b', 42)             |
 | ud.a.b                 | d['a']['b']                  |
 
 
 The only significant difference between operations on the left-side and those
 on the right-side above is when an exception is raised due to there being no
 suitable mapping (and no default as there might be with `get` and `getattr`).
-In such cases, attribute-style access yields an `AttributeError` (matching
-standard Python behavior for attribute access), whereas the equivalent
-operation on a `dict` would yield a `KeyError`.
+In such cases, attribute-style access on a `udict` yields an `AttributeError`
+(matching standard Python behavior for attribute access), whereas the
+equivalent operation on a `dict` would yield a `KeyError`.

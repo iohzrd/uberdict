@@ -9,21 +9,16 @@ class udict(dict):
 
     """
     A dict that supports attribute-style access and hierarchical keys.
-
-    TODO: add info about key topics such as how dotted keys in a plain
-    dict are handled in an udict, how to add a dotted key
-    if needed, the relationship between get and getattr with regard
-    to dotted keys, etc.
     """
 
     def __init__(self, *args, **kwargs):
         """
         Initialize a new `udict` using `dict.__init__`.
 
-        When passing in a plain dict arg, this won't do any special
-        handling of dict values, which will remain plain dicts inside
+        When passing in a dict arg, this won't do any special
+        handling of values that are dicts. They will remain plain dicts inside
         the `udict`. For a recursive init that will convert all
-        dict values in a dict, use `udict.fromdict`.
+        dict values in a dict to udicts, use `udict.fromdict`.
 
         Likewise, dotted keys will not be treated specially, so something
         like `udict({'a.b': 'a.b'})` is equivalent to `ud = udict()` followed
@@ -41,7 +36,6 @@ class udict(dict):
         return _get(obj, token)
 
     def __setitem__(self, key, value):
-        # print('__setitem__', self, key, value)
         if not isinstance(key, str) or '.' not in key:
             return dict.__setitem__(self, key, value)
 
@@ -49,7 +43,6 @@ class udict(dict):
         return dict.__setitem__(obj, token, value)
 
     def __delitem__(self, key):
-        # print('__delitem__:', self, key)
         if not isinstance(key, str) or '.' not in key:
             dict.__delitem__(self, key)
             return
@@ -71,7 +64,7 @@ class udict(dict):
 
     def __delattr__(self, key):
         try:
-            # no special special for dotted keys
+            # no special handling of dotted keys
             dict.__delitem__(self, key)
         except KeyError as e:
             raise AttributeError("no attribute '%s'" % (e.args[0]))

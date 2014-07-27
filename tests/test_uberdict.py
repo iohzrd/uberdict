@@ -478,6 +478,44 @@ def test_popitem_dotted():
         )
 
 
+def test_hasattr_top_level_success():
+    assert hasattr(udict(one=1), 'one')
+
+
+def test_hasattr_top_level_fail():
+    assert not hasattr(udict(one=1), 'two')
+
+
+def test_hasattr_nested():
+    ud = udict.fromdict({
+        'a': {
+            'b': 'a->b'
+        }
+    })
+    assert not hasattr(ud, 'a.b')
+    assert hasattr(ud, 'a')
+    assert hasattr(ud['a'], 'b')
+
+
+def test_hasattr_dotted():
+    ud = udict({'a.b': 'a.b'})
+    assert hasattr(ud, 'a.b')
+    assert not hasattr(ud, 'a')
+
+
+def test_hasattr_nested_dotted():
+    ud = udict.fromdict({
+        'a': {
+            'b': 'a->b',
+            'c': 'a->c'
+        },
+        'a.b': 'a.b'
+    })
+    assert hasattr(ud, 'a')
+    assert hasattr(ud, 'a.b')
+    assert not hasattr(ud, 'a.c')
+
+
 def test_getattr_top_level_success():
     ud = udict(one=1)
     assert ud.one == 1

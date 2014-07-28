@@ -4,6 +4,8 @@ ALL = ['udict']
 
 import sys
 
+# TODO: add support for __missing__
+
 
 class udict(dict):
 

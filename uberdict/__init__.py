@@ -9,6 +9,9 @@ class udict(dict):
 
     """
     A dict that supports attribute-style access and hierarchical keys.
+
+    See `__getitem__` for details of how hierarchical keys are handled,
+    and `__getattr__` for details on attribute-style access.
     """
 
     def __init__(self, *args, **kwargs):
@@ -27,15 +30,36 @@ class udict(dict):
         dict.__init__(self, *args, **kwargs)
 
     def __getitem__(self, key):
+        """
+        Get mapped value for given `key`, or raise `KeyError` if no such
+        mapping.
+
+        The `key` may be any value that is valid for a plain `dict`. If the
+        `key` is a dotted key (a string like 'a.b' containing one or more
+        '.' characters), then the key will be split on '.' and interpreted
+        as a sequence of `__getitem__` calls. For example,
+        `d.__getitem__('a.b')` would be interpreted as (approximately)
+        `d.__getitem__('a').__getitem__('b')`. If the key is not a dotted
+        it is treated normally.
+
+        :exceptions:
+        - KeyError: if there is no such key on a dict (or object that supports
+          `__getitem__`) at any level of the dotted-key traversal.
+        - TypeError: if key is not hashable or if an object at some point
+          in the dotted-key traversal does not support `__getitem__`.
+        """
         if not isinstance(key, str) or '.' not in key:
-            try:
-                return dict.__getitem__(self, key)
-            except KeyError:
-                raise
+            return dict.__getitem__(self, key)
         obj, token = _descend(self, key)
         return _get(obj, token)
 
     def __setitem__(self, key, value):
+        """
+        Set `value` for given `key`.
+
+        See `__getitem__` for details of how `key` is intepreted if it is a
+        dotted key and for exceptions that may be raised.
+        """
         if not isinstance(key, str) or '.' not in key:
             return dict.__setitem__(self, key, value)
 
@@ -43,6 +67,12 @@ class udict(dict):
         return dict.__setitem__(obj, token, value)
 
     def __delitem__(self, key):
+        """
+        Remove mapping for `key` in self.
+
+        See `__getitem__` for details of how `key` is intepreted if it is a
+        dotted key and for exceptions that may be raised.
+        """
         if not isinstance(key, str) or '.' not in key:
             dict.__delitem__(self, key)
             return

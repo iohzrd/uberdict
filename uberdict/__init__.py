@@ -192,6 +192,14 @@ class udict(dict):
         else:
             return dict.pop(obj, token, *args)
 
+    def __dir__(self):
+        """
+        Expose the expected instance and class attributes and methods
+        for the builtin `dir` method, as well as the top-level keys that
+        are stored.
+        """
+        return sorted(set(dir(udict)) | set(self.keys()))
+
 
 # py2/py3 compatibility
 if sys.version_info[0] == 2:

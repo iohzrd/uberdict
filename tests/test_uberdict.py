@@ -970,3 +970,42 @@ def test_update():
     assert ud['a.b'] == 'a->b'
     assert ud['a'] == udict(b='a->b')
     assert ud['c'] == 'c'
+
+
+def test_dir_includes_dict_methods():
+    attrs = set(dir(udict()))
+    for attr in dir({}):
+        assert attr in attrs
+
+
+def test_dir_includes_udict_instance_methods():
+    assert 'todict' in dir(udict())
+
+
+def test_dir_includes_class_methods():
+    assert 'fromdict' in dir(udict())
+
+
+def test_dir_includes_keys():
+    ud = udict(foo='foofoo', bar='barbar')
+    attrs = dir(ud)
+    assert 'foo' in attrs
+    assert 'bar' in attrs
+
+
+def test_dir_includes_dotted_keys():
+    ud = udict({'a.b.c': 'a.b.c'})
+    assert 'a.b.c' in dir(ud)
+
+
+def test_dir_omits_nested_keys():
+    ud = udict.fromdict({
+        'a': {
+            'b': 'a->b'
+        },
+        'a.c': 'a.c'
+    })
+    attrs = dir(ud)
+    assert 'a' in attrs
+    assert 'a.b' not in attrs
+    assert 'a.c' in attrs

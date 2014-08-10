@@ -4,7 +4,7 @@ ALL = ['udict']
 
 import sys
 
-# TODO: add support for __missing__
+_MISSING = object()
 
 
 class udict(dict):
@@ -14,6 +14,13 @@ class udict(dict):
 
     See `__getitem__` for details of how hierarchical keys are handled,
     and `__getattr__` for details on attribute-style access.
+
+    Subclasses may define a '__missing__' method (must be an instance method
+    defined on the class and not just an instance variable) that accepts one
+    parameter. If such a method is defined, then a call to `my_udict[key]`
+    (or the equivalent `my_udict.__getitem__(key)`) that fails will call
+    the '__missing__' method with the key as the parameter and return the
+    result of that call (or raise any exception the call raises).
     """
 
     def __init__(self, *args, **kwargs):
@@ -52,8 +59,17 @@ class udict(dict):
         """
         if not isinstance(key, str) or '.' not in key:
             return dict.__getitem__(self, key)
-        obj, token = _descend(self, key)
-        return _get(obj, token)
+        try:
+            obj, token = _descend(self, key)
+            return _get(obj, token)
+        except KeyError:
+            # if '__missing__' is defined on the class, then we can delegate
+            # to that, but we don't delegate otherwise for consistency with
+            # plain 'dict' behavior, which requires '__missing__' to be an
+            # instance method and not just an instance variable.
+            if hasattr(type(self), '__missing__'):
+                return self.__missing__(key)
+            raise
 
     def __setitem__(self, key, value):
         """
@@ -83,8 +99,13 @@ class udict(dict):
 
     def __getattr__(self, key):
         try:
-            # no special treatement for dotted keys
-            return dict.__getitem__(self, key)
+            # no special treatement for dotted keys, but we need to use
+            # 'get' rather than '__getitem__' in order to avoid using
+            # '__missing__' if key is not in dict
+            val = dict.get(self, key, _MISSING)
+            if val is _MISSING:
+                raise AttributeError("no attribute '%s'" % (key,))
+            return val
         except KeyError as e:
             raise AttributeError("no attribute '%s'" % (e.args[0],))
 
@@ -109,8 +130,14 @@ class udict(dict):
         return constructor, instance_args
 
     def get(self, key, default=None):
+        # We can't use self[key] to support `get` here, because a missing key
+        # should return the `default` and should not use a `__missing__`
+        # method if one is defined (as happens for self[key]).
+        if not isinstance(key, str) or '.' not in key:
+            return dict.get(self, key, default)
         try:
-            return self[key]
+            obj, token = _descend(self, key)
+            return _get(obj, token)
         except KeyError:
             return default
 
@@ -126,8 +153,8 @@ class udict(dict):
         The resulting `udict` will be equivalent to the input
         `mapping` dict but with all dict instances (recursively)
         converted to an `udict` instance.  If you don't want
-        this behavior (you want sub-dicts to remain plain dicts),
-        use `udict(my_dict)` instead.
+        this behavior (i.e., you want sub-dicts to remain plain dicts),
+        use `udict(mapping)` instead.
         """
         ud = cls()
         for k in mapping:
@@ -142,7 +169,7 @@ class udict(dict):
         Create a plain `dict` from this `udict`.
 
         The resulting `dict` will be equivalent to this `udict`
-        but with all `udict` instances (recursively) converted to
+        but with every `udict` value (recursively) converted to
         a plain `dict` instance.
         """
         d = dict()
@@ -168,19 +195,14 @@ class udict(dict):
         If not, insert `key` with a value of `default` and return `default`,
         which defaults to `None`.
         """
-        try:
-            return self[key]
-        except KeyError:
+        val = self.get(key, _MISSING)
+        if val is _MISSING:
+            val = default
             self[key] = default
-            return default
+        return val
 
     def __contains__(self, key):
-        try:
-            self[key]
-        except KeyError:
-            return False
-        else:
-            return True
+        return self.get(key, _MISSING) is not _MISSING
 
     def pop(self, key, *args):
         if not isinstance(key, str) or '.' not in key:
@@ -244,8 +266,6 @@ def _descend(obj, key):
     (value, token) - `value` is the next-to-last object found, and
     `token` is the last token in the `key` (the only one that wasn't consumed
     yet).
-
-
     """
     tokens = key.split('.')
     assert len(tokens) > 1

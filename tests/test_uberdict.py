@@ -26,6 +26,21 @@ import pytest
 from uberdict import udict
 
 
+class DefaultDict(udict):
+
+    def __init__(self, default_factory, *args, **kwargs):
+        assert callable(default_factory)
+        self.default_factory = default_factory
+        udict.__init__(self, *args, **kwargs)
+
+    def __missing__(self, key):
+        return self.default_factory()
+
+
+def fail_factory(*args, **kwargs):
+    pytest.fail()
+
+
 # test utility for getting at the "real" mappings of a dict
 def items(d):
     """
@@ -1009,3 +1024,81 @@ def test_dir_omits_nested_keys():
     assert 'a' in attrs
     assert 'a.b' not in attrs
     assert 'a.c' in attrs
+
+
+def test_subclass_missing_getitem_success():
+    ud = DefaultDict(fail_factory, a=3)
+    assert ud['a'] == 3
+
+
+def test_subclass_missing_getitem_fail():
+    ud = DefaultDict(int)
+    assert ud['b'] == int()
+
+
+def test_subclass_missing_contains():
+    ud = DefaultDict(int, b=1)
+    assert 'a' not in ud
+    assert 'b' in ud
+
+
+def test_subclass_missing_get_fail():
+    ud = DefaultDict(int)
+    assert ud.get('b') is None
+    assert ud.get('b', 'foo') == 'foo'
+
+
+def test_subclass_missing_delitem_success():
+    ud = DefaultDict(int, a=1)
+    del ud['a']
+    assert 'a' not in ud
+
+
+def test_subclass_missing_delitem_fail():
+    ud = DefaultDict(fail_factory)
+    with pytest.raises(KeyError):
+        del ud['a']
+
+
+def test_subclass_missing_setdefault_notpresent():
+    ud = DefaultDict(fail_factory)
+    obj = object()
+    res = ud.setdefault('a', obj)
+    assert res is obj
+    assert ud['a'] is res
+
+
+def test_subclass_missing_setdefault_present():
+    ud = DefaultDict(fail_factory)
+    obj = object()
+    ud['a'] = obj
+    res = ud.setdefault('a', object())
+    assert res is obj
+
+
+def test_subclass_missing_todict():
+    # verifying that it doesn't use __missing__ inadvertently
+    ud = DefaultDict(fail_factory)
+    ud['a'] = 1
+    assert ud.copy() == ud
+
+
+def test_subclass_missing_getattr():
+    ud = DefaultDict(fail_factory)
+    ud.foo = 'bar'
+    assert getattr(ud, 'foo') == 'bar'
+    with pytest.raises(AttributeError):
+        ud.moo
+
+
+def test_subclass_missing_instance_variable_ignored():
+    class MyDict(udict):
+        def __init__(self, *args, **kwargs):
+            udict.__init__(self, *args, **kwargs)
+            self.__dict__['__missing__'] = fail_factory
+    md = MyDict()
+    assert md.__missing__ is fail_factory
+    with pytest.raises(KeyError):
+        md['a']
+    with pytest.raises(AttributeError):
+        md.a

@@ -1,9 +1,20 @@
-__version__ = '0.2'
+__version__ = '0.3.0'
 
 ALL = ['udict']
 
 import sys
 
+# py2/py3 compatibility
+if sys.version_info[0] == 2:
+    def iteritems(d):
+        return d.iteritems()
+else:
+    def iteritems(d):
+        return d.items()
+
+
+# For internal use only as a value that can be used as a default
+# and should never exist in a dict.
 _MISSING = object()
 
 
@@ -223,15 +234,6 @@ class udict(dict):
         are stored.
         """
         return sorted(set(dir(udict)) | set(self.keys()))
-
-
-# py2/py3 compatibility
-if sys.version_info[0] == 2:
-    def iteritems(d):
-        return d.iteritems()
-else:
-    def iteritems(d):
-        return d.items()
 
 
 # helper to do careful and consistent `obj[name]`

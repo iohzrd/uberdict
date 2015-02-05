@@ -43,11 +43,10 @@ setup(
     name='uberdict',
     version=uberdict.__version__,
     url='http://github.com/eukaryote/uberdict/',
-    author='eukaryote',
-    tests_require=['pytest==2.5.2'],
-    install_requires=[],
-    cmdclass={'test': PyTest},
+    author='Calvin Smith',
     author_email='sapientdust+uberdict@gmail.com',
+    tests_require=['pytest'],
+    cmdclass={'test': PyTest},
     description=(
         'A Python dict that supports attribute-style access as '
         'well as hierarchical keys.'
@@ -75,7 +74,7 @@ setup(
         'Topic :: Utilities'
     ],
     extras_require={
-        'testing': ['pytest==2.5.2'],
+        'testing': ['pytest'],
         'develop': ['wheel'],
     }
 )

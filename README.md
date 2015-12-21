@@ -11,7 +11,7 @@ my_udict.get('result.status.code', default)  # is equivalent to:
 my_udict.get('result', {}).get('status', {}).get('code', default)
 ```
 
-Tested under py26, py27, py32, py33, py34, and pypy.
+Tested under py26, py27, py32, py33, py34, py35, and pypy.
 
 [![Build Status](https://travis-ci.org/eukaryote/uberdict.svg?branch=master)](https://travis-ci.org/eukaryote/uberdict)
 

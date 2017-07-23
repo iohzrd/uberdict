@@ -1,9 +1,10 @@
+import sys
+
 __version_info__ = (0, 3, 0)
 __version__ = '.'.join(map(str, __version_info__))
 
 ALL = ['udict']
 
-import sys
 
 # py2/py3 compatibility
 if sys.version_info[0] == 2:

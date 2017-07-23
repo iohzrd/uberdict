@@ -1,16 +1,26 @@
-import sys
-
 from collections import Mapping
+from functools import partial
+import sys
 
 import pytest
 
-from uberdict import udict
+from uberdict import _descend, _get, udict
 
 try:
     import cPickle as pickle
 except ImportError:
     import pickle
 
+try:
+    import mock
+except ImportError:
+    from unittest import mock
+
+
+from collections import namedtuple
+
+version_info = namedtuple('version_info',
+                          'major,minor,micro,releaselevel,serial')
 
 if sys.version_info[0] < 3:
     def b(s):
@@ -54,18 +64,110 @@ def items(d):
     return sorted(elems)
 
 
+def mkdict(cls, *args, **kwargs):
+    # defaultdict needs type as first arg; we use None for testing
+    if cls is DefaultDict:
+        cls = partial(cls, type(None))
+    return cls(*args, **kwargs)
+
+
 @pytest.fixture
 def dict_():
     return {
         'a': {'b': 'a->b'},
+        '1': {'2': {'3': '1->2->3'}},
         'a.b': 'a.b',
-        'c': 'c'
+        'c': 'c',
     }
+
+
+@pytest.fixture(params=[dict, udict, DefaultDict])
+def alldictfactory(request):
+    return request.param
+
+
+@pytest.fixture(params=[udict, DefaultDict])
+def customdictfactory(request):
+    return request.param
 
 
 @pytest.fixture
 def udict_(dict_):
     return udict.fromdict(dict_)
+
+
+@pytest.fixture
+def defaultdict_(dict_):
+    return DefaultDict(lambda: None, dict_)
+
+
+def test_get_bad_type(customdictfactory):
+    with pytest.raises(TypeError):
+        _get(None, None)
+    with pytest.raises(TypeError):
+        _get({}, {})
+
+
+def test_get_present(customdictfactory):
+    dct = mkdict(customdictfactory, {'a': 1})
+    assert _get(dct, 'a') == 1
+
+
+def test_get_custom_getitem():
+
+    class C(object):
+
+        def __getitem__(self, key):
+            if key == 'sentinel':
+                return mock.sentinel
+            raise KeyError(key)
+
+    c = C()
+    assert _get(c, 'sentinel') is mock.sentinel
+    with pytest.raises(KeyError):
+        _get(c, 'missing')
+
+
+def test_descend_top_level(dict_, alldictfactory):
+    dct = mkdict(alldictfactory, dict_)
+    with pytest.raises(ValueError):
+        _descend(dct, 'c')
+
+
+def test_descend_one_dot_match_all(dict_, alldictfactory):
+    dct = mkdict(alldictfactory, dict_)
+    val, token = _descend(dct, 'a.b')
+    assert val is dct['a']
+    assert token == 'b'
+
+
+def test_descend_one_dot_match_allbutlast(dict_, alldictfactory):
+    # matches all but last token
+    dct = mkdict(alldictfactory, dict_)
+    val, token = _descend(dct, 'a.z')
+    assert val is dct['a']
+    assert token == 'z'
+
+
+def test_descend_two_dot_match_all(dict_, alldictfactory):
+    dct = mkdict(alldictfactory, dict_)
+    val, token = _descend(dct, '1.2.3')
+    assert val is dct['1']['2']
+    assert token == '3'
+
+
+def test_descend_two_dot_match_allbutlast(dict_, alldictfactory):
+    dct = mkdict(alldictfactory, dict_)
+    val, token = _descend(dct, '1.2.X')
+    assert val is dct['1']['2']
+    assert token == 'X'
+
+
+def test_descend_two_dot_match_first(dict_, alldictfactory):
+    dct = mkdict(alldictfactory, dict_)
+    with pytest.raises(KeyError) as err:
+        _descend(dct, '1.Z.X')
+        assert err.value.args[0] == 'Z'
 
 
 def test_init_noargs():
@@ -323,6 +425,13 @@ def test_getitem_dotted_key_top_level_miss():
         ud['a.b']
 
 
+def test_getitem_subclass_missing():
+    ud = DefaultDict(int)
+    assert ud['missing'] == 0
+    ud = DefaultDict(lambda: None)  # not type(None) for py2 compability
+    assert ud['missing'] is None
+
+
 def test_setitem_int_key():
     ud = udict()
     ud[1] = 'one'
@@ -427,15 +536,25 @@ def test_pop_present():
     ud == udict(a='a')
 
 
-def test_pop_missing_no_default():
+def test_pop_missing_toplevel_no_default():
     with pytest.raises(KeyError):
         udict().pop('missing')
     with pytest.raises(KeyError):
         udict(a='aa').pop('aa')
 
 
+def test_pop_missing_second_level_no_default():
+    with pytest.raises(KeyError):
+        udict().pop('a.b')
+
+
 def test_pop_missing_default():
     udict().pop('foo', 'bar') == 'bar'
+
+
+def test_pop_missing_second_level_default():
+    assert udict().pop('a.b', mock.sentinel) is mock.sentinel
+    assert udict(a={}).pop('a.b', mock.sentinel) is mock.sentinel
 
 
 def test_pop_nested():
@@ -1102,3 +1221,20 @@ def test_subclass_missing_instance_variable_ignored():
         md['a']
     with pytest.raises(AttributeError):
         md.a
+
+
+@pytest.mark.parametrize('version_info', [
+    version_info(2, 7, 13, 'final', 0),
+    version_info(3, 6, 2, 'final', 0),
+])
+def test_iteritems(version_info):
+    assert version_info.major in (2, 3)
+    sys.modules.pop('uberdict', None)
+    dct = mock.MagicMock()
+    method = 'iteritems' if version_info[0] == 2 else 'items'
+    with mock.patch.object(sys, 'version_info') as v_info:
+        for k in version_info._asdict():
+            setattr(v_info, k, getattr(version_info, k))
+        import uberdict
+        uberdict.iteritems(dct)
+        getattr(dct, method).assert_called_once_with()

@@ -1,0 +1,6 @@
+pytest
+pytest-xdist
+pytest-cov
+pytest-pep8
+mock
+tox

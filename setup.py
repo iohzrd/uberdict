@@ -10,6 +10,10 @@ import uberdict
 
 here_dir = os.path.abspath(os.path.dirname(__file__))
 
+tests_require = ['pytest', 'pytest-pep8']
+if sys.version_info[0] == 2:
+    tests_require.append('mock')
+
 
 def read(*filenames):
     buf = []
@@ -46,7 +50,7 @@ setup(
     url='http://github.com/eukaryote/uberdict/',
     author='Calvin Smith',
     author_email='sapientdust+uberdict@gmail.com',
-    tests_require=['pytest'],
+    tests_require=tests_require,
     cmdclass={'test': PyTest},
     description=(
         'A Python dict that supports attribute-style access as '
@@ -76,6 +80,6 @@ setup(
     ],
     extras_require={
         'dev': ['check-manifest', 'wheel'],
-        'test': ['pytest', 'pytest-pep8'],
+        'test': tests_require,
     }
 )

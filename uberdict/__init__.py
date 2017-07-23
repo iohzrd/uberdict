@@ -5,9 +5,8 @@ __version__ = '.'.join(map(str, __version_info__))
 
 ALL = ['udict']
 
-
 # py2/py3 compatibility
-if sys.version_info[0] == 2:
+if sys.version_info.major == 2:
     def iteritems(d):
         return d.iteritems()
 else:
@@ -72,17 +71,8 @@ class udict(dict):
         """
         if not isinstance(key, str) or '.' not in key:
             return dict.__getitem__(self, key)
-        try:
-            obj, token = _descend(self, key)
-            return _get(obj, token)
-        except KeyError:
-            # if '__missing__' is defined on the class, then we can delegate
-            # to that, but we don't delegate otherwise for consistency with
-            # plain 'dict' behavior, which requires '__missing__' to be an
-            # instance method and not just an instance variable.
-            if hasattr(type(self), '__missing__'):
-                return self.__missing__(key)
-            raise
+        obj, token = _descend(self, key)
+        return _get(obj, token)
 
     def __setitem__(self, key, value):
         """
@@ -111,16 +101,13 @@ class udict(dict):
         del obj[token]
 
     def __getattr__(self, key):
-        try:
-            # no special treatement for dotted keys, but we need to use
-            # 'get' rather than '__getitem__' in order to avoid using
-            # '__missing__' if key is not in dict
-            val = dict.get(self, key, _MISSING)
-            if val is _MISSING:
-                raise AttributeError("no attribute '%s'" % (key,))
-            return val
-        except KeyError as e:
-            raise AttributeError("no attribute '%s'" % (e.args[0],))
+        # no special treatement for dotted keys, but we need to use
+        # 'get' rather than '__getitem__' in order to avoid using
+        # '__missing__' if key is not in dict
+        val = dict.get(self, key, _MISSING)
+        if val is _MISSING:
+            raise AttributeError("no attribute '%s'" % (key,))
+        return val
 
     def __setattr__(self, key, value):
         # normal setattr behavior, except we put it in the dict
@@ -272,7 +259,8 @@ def _descend(obj, key):
     yet).
     """
     tokens = key.split('.')
-    assert len(tokens) > 1
+    if len(tokens) < 2:
+        raise ValueError(key)
     value = obj
     for token in tokens[:-1]:
         value = _get(value, token)

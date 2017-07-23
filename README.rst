@@ -62,6 +62,7 @@ The values in a `udict` may be accessed as if they were attributes on the `udict
 like normal Python objects:
 
 .. code-block:: python
+
     d = {
         'result': {
             'status': {
@@ -80,10 +81,12 @@ like normal Python objects:
     assert 'message' in ud
     assert ud['message'] == ud.message
 
+
 The standard Python attr methods (`hasattr`, `getattr`, `setattr`, and
 `delattr`) work as expected.
 
 .. code-block:: python
+
     # hasattr/getattr/setattr/delattr work as expected
     d = udict()
     assert not hasattr(d, 'foo')
@@ -107,6 +110,7 @@ and can retrieve the value for a key containing a `.` by using `getattr`.
 
 
 .. code-block:: python
+
     d = {
         'a': {
             'b': 'a->b'
@@ -126,6 +130,7 @@ Dict-Style Access and Hierarchical Keys
 Because a `udict` is a `dict`, you can of course access it like a `dict`:
 
 .. code-block:: python
+
     ud = udict({'foo': 1})
     assert 'foo' in ud
     ud['foo'] = 2
@@ -138,6 +143,7 @@ normal `dict` operations with dotted keys that traverse multiple levels
 of the hierarchical structure:
 
 .. code-block:: python
+
     ud = udict.fromdict({
         'result': {
             'status': {
@@ -189,6 +195,7 @@ Avoiding Ambiguity of Dotted Keys
 Consider the following `udict`:
 
 .. code-block:: python
+
     ud = udict.fromdict({
         'a': {
             'b': 'a->b'

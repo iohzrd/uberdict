@@ -17,7 +17,8 @@ and hierarchical keys:
     my_udict.get('result.status.code', default)  # is equivalent to:
     my_udict.get('result', {}).get('status', {}).get('code', default)
 
-Tested under py26, py27, py32, py33, py34, py35, and pypy.
+Tested under py27, py32, py33, py34, py35, py36, py37, and
+pypy (Python2 and Python 3.5 pypy versions).
 
 
 Key Features
@@ -99,11 +100,11 @@ The standard Python attr methods (`hasattr`, `getattr`, `setattr`, and
     assert 'foo' not in d
     assert not hasattr(d, 'foo')
 
-.. important:: `getattr` and related functions don't interpret a `.` in keys
-  in any special way, so you can always insert a key containing a `.` using
-  `setattr`, and can retrieve the value for a key containing a `.` by using
-  `getattr`.
-
+.. important::
+   `getattr` and related functions don't interpret a `.` in keys
+   in any special way, so you can always insert a key containing a `.` using
+   `setattr`, and can retrieve the value for a key containing a `.` by using
+   `getattr`.
 
 .. code-block:: python
     d = {

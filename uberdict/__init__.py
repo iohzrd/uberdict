@@ -27,7 +27,7 @@ class udict(dict):
     See `__getitem__` for details of how hierarchical keys are handled,
     and `__getattr__` for details on attribute-style access.
 
-    Subclasses may define a '__missing__' method (must be an instance method
+    Subclasses may define a '__missing__' method (it must be an instance method
     defined on the class and not just an instance variable) that accepts one
     parameter. If such a method is defined, then a call to `my_udict[key]`
     (or the equivalent `my_udict.__getitem__(key)`) that fails will call

@@ -6,8 +6,8 @@ uberdict
     :target: https://travis-ci.org/eukaryote/uberdict
 
 
-`uberdict.udict` is a Python `dict` class that supports attribute-style access
-and hierarchical keys:
+``uberdict.udict`` is a Python ``dict`` class that supports attribute-style
+access and hierarchical keys:
 
 .. code-block:: python
 

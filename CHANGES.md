@@ -1,5 +1,11 @@
 # Changes
 
+## Version 0.4.0 (2017-07-23)
+
+ * support python 2.7 and 3.4+, as well as pypy (pypy2 and dev 3.5 pypy)
+ * 100% test coverage
+ * making available on pypi
+
 ## Version 0.3.0 (2014-08-09)
 
  * added support for `dir` method to improve interactive use (exposes stored keys as well as the normal instance and class attributes that would be expected)

@@ -2,28 +2,28 @@ import sys
 
 from collections import Mapping
 
+import pytest
+
+from uberdict import udict
+
 try:
     import cPickle as pickle
 except ImportError:
     import pickle
 
+
 if sys.version_info[0] < 3:
     def b(s):
-        return s.encode('utf8') if isinstance(s, unicode) else s
+        return s.encode('utf8') if not isinstance(s, str) else s
 
     def u(s):
         return s.decode('utf8') if isinstance(s, str) else s
 else:
     def b(s):
-        return s.encode('utf8') if isinstance(s, str) else s
+        return s.encode('utf8') if not isinstance(s, bytes) else s
 
     def u(s):
         return s.decode('utf8') if isinstance(s, bytes) else s
-
-import pytest
-
-
-from uberdict import udict
 
 
 class DefaultDict(udict):

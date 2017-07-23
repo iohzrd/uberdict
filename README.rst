@@ -232,7 +232,7 @@ Reasoning about udict Operations
 The following table shows how accessing a value on a `udict` corresponds
 to one or more operations on a plain `dict` that yield the same result.
 
-.. table:: udict operations
+.. table::
    :widths: auto
 
    =======================    =============================

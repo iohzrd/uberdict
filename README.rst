@@ -249,6 +249,7 @@ to one or more operations on a plain `dict` that yield the same result:
    getattr(ud, 'a.b')         d['a.b']
    getattr(ud, 'a.b', 42)     d.get('a.b', 42)
    ud.a.b                     d['a']['b']
+   ===================        =============================
 
 
 The only significant difference between operations on the left-side and those

@@ -234,13 +234,6 @@ to one or more operations on a plain `dict` that yield the same result:
 
 .. table:: udict operations
 
-   =====  =====
-     A    not A
-   =====  =====
-   False  True
-   True   False
-   =====  =====
-
    ===================        =============================
      udict operation          dict operation(s)
    ===================        =============================

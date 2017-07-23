@@ -28,7 +28,7 @@ def read(*filenames):
     return '\n\n'.join(buf)
 
 
-long_description = read('README.md', 'CHANGES.md')
+long_description = read('README.rst', 'CHANGES.rst')
 
 
 class PyTest(TestCommand):

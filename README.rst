@@ -233,7 +233,6 @@ The following table shows how accessing a value on a `udict` corresponds
 to one or more operations on a plain `dict` that yield the same result.
 
 .. table::
-   :widths: auto
 
    =======================    =============================
      udict operation          dict operation(s)

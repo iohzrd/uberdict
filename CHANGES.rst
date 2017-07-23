@@ -1,7 +1,7 @@
 Changes
 =======
 
-Version 0.4.2 (2017-07-23)
+Version 0.4.3 (2017-07-23)
 --------------------------
 
  * doc changes to get description formatted correctly on both github and pypi

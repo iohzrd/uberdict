@@ -104,9 +104,10 @@ The standard Python attr methods (`hasattr`, `getattr`, `setattr`, and
     assert not hasattr(d, 'foo')
 
 
-Note: `getattr` and related functions don't interpret a `.` in keys in any
-special way, so you can always insert a key containing a `.` using `setattr`,
-and can retrieve the value for a key containing a `.` by using `getattr`.
+.. note:: `getattr` and related functions don't interpret a `.` in keys in any
+    special way, so you can always insert a key containing a `.` using
+    `setattr`, and can retrieve the value for a key containing a `.` by using
+    `getattr`.
 
 
 .. code-block:: python

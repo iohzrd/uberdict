@@ -23,6 +23,7 @@ def read(*filenames):
             pass
     return '\n\n'.join(buf)
 
+
 long_description = read('README.md', 'CHANGES.md')
 
 
@@ -74,7 +75,7 @@ setup(
         'Topic :: Utilities'
     ],
     extras_require={
-        'testing': ['pytest'],
-        'develop': ['wheel'],
+        'dev': ['check-manifest', 'wheel'],
+        'test': ['pytest', 'pytest-pep8'],
     }
 )

@@ -1,15 +1,23 @@
+import datetime
+import json
 import sys
+import time
+
 
 __version_info__ = (0, 4, 3)
-__version__ = '.'.join(map(str, __version_info__))
+__version__ = ".".join(map(str, __version_info__))
 
-ALL = ['udict']
+ALL = ["udict"]
 
 # py2/py3 compatibility
 if sys.version_info.major == 2:
+
     def iteritems(d):
         return d.iteritems()
+
+
 else:
+
     def iteritems(d):
         return d.items()
 
@@ -48,6 +56,14 @@ class udict(dict):
         like `udict({'a.b': 'a.b'})` is equivalent to `ud = udict()` followed
         by `setattr(ud, 'a.b', 'a.b')`.
         """
+        if isinstance(args, tuple):
+            for i in range(0, len(args)):
+                if isinstance(args[i], dict):
+                    for k, v in list(args[i].items()):
+                        if "-" in k:
+                            nk = k.replace("-", "_")
+                            args[i][nk] = args[i][k]
+                            args[i].pop(k)
         dict.__init__(self, *args, **kwargs)
 
     def __getitem__(self, key):
@@ -69,7 +85,7 @@ class udict(dict):
         - TypeError: if key is not hashable or if an object at some point
           in the dotted-key traversal does not support `__getitem__`.
         """
-        if not isinstance(key, str) or '.' not in key:
+        if not isinstance(key, str) or "." not in key:
             return dict.__getitem__(self, key)
         obj, token = _descend(self, key)
         return _get(obj, token)
@@ -81,7 +97,7 @@ class udict(dict):
         See `__getitem__` for details of how `key` is intepreted if it is a
         dotted key and for exceptions that may be raised.
         """
-        if not isinstance(key, str) or '.' not in key:
+        if not isinstance(key, str) or "." not in key:
             return dict.__setitem__(self, key, value)
 
         obj, token = _descend(self, key)
@@ -94,7 +110,7 @@ class udict(dict):
         See `__getitem__` for details of how `key` is intepreted if it is a
         dotted key and for exceptions that may be raised.
         """
-        if not isinstance(key, str) or '.' not in key:
+        if not isinstance(key, str) or "." not in key:
             dict.__delitem__(self, key)
             return
         obj, token = _descend(self, key)
@@ -133,7 +149,7 @@ class udict(dict):
         # We can't use self[key] to support `get` here, because a missing key
         # should return the `default` and should not use a `__missing__`
         # method if one is defined (as happens for self[key]).
-        if not isinstance(key, str) or '.' not in key:
+        if not isinstance(key, str) or "." not in key:
             return dict.get(self, key, default)
         try:
             obj, token = _descend(self, key)
@@ -144,6 +160,14 @@ class udict(dict):
     @classmethod
     def fromkeys(self, seq, value=None):
         return udict((elem, value) for elem in seq)
+
+    @classmethod
+    def fromJSON(cls, json_string):
+        """
+        creates a dictionary json string
+        """
+        jmsg = json.loads(json_string)
+        return cls.fromdict(jmsg)
 
     @classmethod
     def fromdict(cls, mapping):
@@ -205,7 +229,7 @@ class udict(dict):
         return self.get(key, _MISSING) is not _MISSING
 
     def pop(self, key, *args):
-        if not isinstance(key, str) or '.' not in key:
+        if not isinstance(key, str) or "." not in key:
             return dict.pop(self, key, *args)
         try:
             obj, token = _descend(self, key)
@@ -258,7 +282,7 @@ def _descend(obj, key):
     `token` is the last token in the `key` (the only one that wasn't consumed
     yet).
     """
-    tokens = key.split('.')
+    tokens = key.split(".")
     if len(tokens) < 2:
         raise ValueError(key)
     value = obj

@@ -17,6 +17,14 @@ access and hierarchical keys:
     my_udict.get('result.status.code', default)  # is equivalent to:
     my_udict.get('result', {}).get('status', {}).get('code', default)
 
+If the ``dict`` being imported has keys which contain '-' they will be converted
+to '_', otherwise the `attributes` would be inaccessible:
+
+.. code-block:: python
+
+    my_udict.result.status_code  # is equivalent to:
+    my_udict['result']['status-code']
+
 Tested under py27, py32, py33, py34, py35, py36, py37, and
 pypy (Python2 and Python 3.5 pypy versions).
 
